@@ -1,0 +1,4 @@
+market,candle_date_time_utc,candle_date_time_kst,opening_price,high_price,low_price,trade_price,timestamp,candle_acc_trade_price,candle_acc_trade_volume
+KRW-BTC,2026-01-01T00:00:00,2026-01-01T09:00:00,100.0,110.0,90.0,105.0,1767225600000,12345.0,120.5
+KRW-BTC,2026-01-02T00:00:00,2026-01-02T09:00:00,105.0,112.0,101.0,108.0,1767312000000,13000.0,115.2
+KRW-BTC,2026-01-03T00:00:00,2026-01-03T09:00:00,108.0,115.0,106.0,113.0,1767398400000,14100.0,125.8
