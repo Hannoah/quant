@@ -1,55 +1,172 @@
 # quant
 
-Upbit 공개 API로 봉 데이터를 수집해서 보여주는 Rust CLI.
-[`agentic-rust-starter`](C:\Users\kornah\Work\09_Personal_Project\agentic-rust-starter) 규칙(`CONVENTIONS.md`, `[lints]`, `ai-verify.sh`)을 그대로 적용한 프로젝트다.
+A small Rust CLI that collects market candles and shows their status in the terminal.
 
-## 설치 (Claude Code처럼 한 번 설치하면 어디서든 `quant`)
+- **Crypto:** OHLCV candles from the [Upbit](https://upbit.com) public API (no key required)
+- **Stocks:** daily/weekly/monthly bars from the Yahoo Finance chart API (no key required)
+- **Status view:** one `show` command renders any saved CSV as a table plus a one-line summary
+- Built with the [agentic-rust-starter](https://github.com/Hannoah/agentic-rust-starter) conventions
+  (`CONVENTIONS.md`, strict `[lints]`, `ai-verify.sh` feedback loop)
 
-필요한 것: Rust 1.85+ (`edition = "2024"`), API 키 불필요.
+## Requirements
+
+- Rust 1.85+ (`edition = "2024"`)
+- No API keys. Both data sources are public endpoints.
+- Network access for `fetch` / `fetch-stock` (`show` works fully offline)
+
+## Installation
+
+Install once, then `quant` works from any directory (like the Claude Code CLI).
+
+Windows (PowerShell, from the repo root):
 
 ```powershell
-# 이 폴더에서 실행
 .\install.ps1
 ```
 
+macOS / Linux (from the repo root):
+
 ```bash
-# macOS / Linux
 ./install.sh
 ```
 
-수동 설치도 같다: `cargo install --locked --path . --force`.
-설치 후 새 터미널에서 `quant --version`이 나오면 성공이다.
-업데이트는 같은 명령을 다시, 삭제는 `cargo uninstall quant`.
+Manual install is equivalent:
 
-## 사용법
+```bash
+cargo install --locked --path . --force
+```
 
-```powershell
-# 코인 일봉 30개 수집 -> data/candles.csv
+Then open a **new** terminal and confirm:
+
+```bash
+quant --version
+# quant 0.1.0
+```
+
+Update to the latest source with the same command you installed with.
+Uninstall with:
+
+```bash
+cargo uninstall quant
+```
+
+## Quick start
+
+```bash
+# 1. Collect 30 daily BTC candles (KRW market) into a CSV
 quant fetch --market KRW-BTC --interval days --count 30 --output data/candles.csv
 
-# 주식 일봉 3개월치 수집 -> data/stocks.csv (삼성전자 예시)
+# 2. Collect 3 months of Samsung Electronics daily bars
 quant fetch-stock --symbol 005930.KS --interval day --range 3mo --output data/stocks.csv
 
-# 저장된 CSV 앞 10행 + 현황 요약 보기 (코인/주식 자동 구분)
-quant show --input data/candles.csv --limit 10
-
-# 뒤(최신) 5행 보기
-quant show --input data/candles.csv --limit 5 --tail
+# 3. Show the newest 5 rows plus a status summary
+quant show --input data/stocks.csv --limit 5 --tail
 ```
 
-코인 `--interval` 값: `days`, `weeks`, `months`, `minutes1`, `minutes30`, `minutes60`, `minutes240`.
-`--count`는 1~200. 환경변수 `QUANT_MARKET`으로 기본 마켓도 지정할 수 있다.
+Example `show` output:
 
-주식 심볼은 Yahoo 형식: 코스피 `005930.KS`, 코스닥 `종목코드.KQ`, 미국 `AAPL`.
-주식 `--interval` 값: `day`, `week`, `month` / `--range` 값: `1d 5d 1mo 3mo 6mo 1y 2y 5y 10y ytd max`.
-환경변수 `QUANT_SYMBOL`으로 기본 심볼도 지정할 수 있다.
-
-## 검증
-
-```powershell
-cargo test
-bash ai-verify.sh   # cargo check + clippy (-D warnings)
+```text
+date                 open         high          low        close         volume
+2026-11-02       185000.00    189500.00    184000.00    188700.00        9123456
+(1 rows shown from data/stocks.csv)
+005930.KS | 23 bars | 2026-10-06 ~ 2026-11-06 | latest 188700.00 | high 279500.00 / low 179200.00 | -32.24%
 ```
 
-자세한 작업 규칙은 [CONVENTIONS.md](CONVENTIONS.md),
-최신 crate 패턴은 [docs/ai_context/crate_cheatsheet.md](docs/ai_context/crate_cheatsheet.md)를 본다.
+No network at hand? The repo ships offline fixtures:
+
+```bash
+quant show --input data/sample.csv --limit 3        # Upbit-style candles
+quant show --input data/sample_stock.csv --limit 3  # Yahoo-style stock bars
+```
+
+## Commands
+
+### `quant fetch` — crypto candles (Upbit)
+
+```bash
+quant fetch --market KRW-BTC --interval days --count 30 --output data/candles.csv
+```
+
+| Flag | Default | Notes |
+|---|---|---|
+| `--market` | `KRW-BTC` | Upbit market code (`KRW-ETH`, `KRW-XRP`, …). Also via `QUANT_MARKET` env |
+| `--interval` | `days` | `days`, `weeks`, `months`, `minutes1`, `minutes30`, `minutes60`, `minutes240` |
+| `--count` | `30` | 1–200, newest bars first |
+| `--output` | `data/candles.csv` | Parent directories are created automatically |
+
+After saving, the first 5 rows are previewed in the terminal.
+
+### `quant fetch-stock` — stock bars (Yahoo Finance)
+
+```bash
+quant fetch-stock --symbol 005930.KS --interval day --range 3mo --output data/stocks.csv
+```
+
+| Flag | Default | Notes |
+|---|---|---|
+| `--symbol` | `005930.KS` | Yahoo symbol: KOSPI `005930.KS`, KOSDAQ `<code>.KQ`, US `AAPL`. Also via `QUANT_SYMBOL` env |
+| `--interval` | `day` | `day` (`1d`), `week` (`1wk`), `month` (`1mo`) |
+| `--range` | `3mo` | `1d 5d 1mo 3mo 6mo 1y 2y 5y 10y ytd max` |
+| `--output` | `data/stocks.csv` | Parent directories are created automatically |
+
+Bars with missing closes are skipped; missing open/high/low fall back to the close.
+
+### `quant show` — status view (offline)
+
+```bash
+quant show --input data/stocks.csv --limit 10   # first 10 rows
+quant show --input data/stocks.csv --limit 5 --tail  # newest 5 rows
+```
+
+The CSV header decides the format automatically: a `market` column means
+Upbit candles, otherwise stock bars. Output is a fixed-width table plus a
+summary line (symbol/market, row count, date range, latest price, high/low,
+change vs. first open).
+
+## Configuration
+
+| Env var | Purpose |
+|---|---|
+| `QUANT_MARKET` | Default `--market` for `fetch` |
+| `QUANT_SYMBOL` | Default `--symbol` for `fetch-stock` |
+| `RUST_LOG` | Log level (e.g. `RUST_LOG=info`), via `tracing` |
+
+## Development
+
+```bash
+cargo test        # unit tests (no network needed)
+bash ai-verify.sh # cargo check + clippy with -D warnings (Git Bash on Windows)
+```
+
+Working rules live in [CONVENTIONS.md](CONVENTIONS.md): type-first design
+(types → error types → test skeletons → logic), owned types over lifetimes,
+`thiserror` + `anyhow` error handling, no `unwrap`/`expect` outside tests,
+no `unsafe`. Crate patterns are collected in
+[docs/ai_context/crate_cheatsheet.md](docs/ai_context/crate_cheatsheet.md).
+
+Project layout:
+
+```text
+src/
+  main.rs    # CLI entry point (tokio runtime, subcommand dispatch)
+  cli.rs     # Clap 4 derive definitions (fetch / fetch-stock / show)
+  types.rs   # Candle, StockBar, Interval, StockInterval
+  error.rs   # QuantError (thiserror) + input validators
+  upbit.rs   # Upbit public candles client
+  yahoo.rs   # Yahoo Finance chart client + response parser
+  store.rs   # CSV save/load, Dataset auto-detect, table + summary formatting
+```
+
+## Data sources & disclaimer
+
+- Upbit candles: `GET https://api.upbit.com/v1/candles/{days,weeks,months,minutes/N}`
+  — official public endpoint, no authentication.
+- Yahoo Finance: `GET https://query1.finance.yahoo.com/v8/finance/chart/{symbol}`
+  — unofficial public endpoint, no authentication. It can rate-limit or change
+  without notice; if `fetch-stock` fails, retry later.
+
+This is a data-collection and viewing tool, not investment advice.
+
+## License
+
+[MIT](LICENSE) © 2026 Hannoah
