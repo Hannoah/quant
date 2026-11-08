@@ -18,33 +18,93 @@ A small Rust CLI that collects market candles and shows their status in the term
 
 Install once, then `quant` works from any directory (like the Claude Code CLI).
 
-Windows (PowerShell, from the repo root):
+### 1. Install Rust (if needed)
+
+`quant` needs Rust 1.85+ (`edition = "2024"`). If `cargo --version` fails,
+install via [rustup](https://rustup.rs):
+
+Windows (PowerShell):
 
 ```powershell
-.\install.ps1
+winget install Rustlang.Rustup
 ```
 
-macOS / Linux (from the repo root):
+macOS / Linux:
 
 ```bash
-./install.sh
-```
-
-Manual install is equivalent:
-
-```bash
-cargo install --locked --path . --force
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 ```
 
 Then open a **new** terminal and confirm:
 
 ```bash
-quant --version
-# quant 0.1.0
+cargo --version
+# cargo 1.85.0 (or newer)
 ```
 
-Update to the latest source with the same command you installed with.
-Uninstall with:
+### 2. Install `quant`
+
+From the repo root, pick your platform:
+
+Windows (PowerShell):
+
+```powershell
+.\install.ps1
+```
+
+macOS / Linux:
+
+```bash
+./install.sh
+```
+
+What the script does:
+
+1. Checks that `cargo` exists
+2. Runs `cargo install --locked --path . --force` (release build)
+3. Verifies the result with `quant --version`
+
+Manual install is equivalent (needs network access to crates.io on first run):
+
+```bash
+git clone https://github.com/Hannoah/quant.git
+cd quant
+cargo install --locked --path . --force
+```
+
+For development without installing, run from the repo root instead:
+
+```bash
+cargo run -- show --input data/sample_stock.csv --limit 3
+```
+
+### 3. Verify
+
+Open a **new** terminal (so `PATH` refreshes) and run:
+
+```bash
+quant --version
+# quant 0.1.0
+quant show --input data/sample_stock.csv --limit 3
+```
+
+### Troubleshooting
+
+- **`quant` is not recognized**: the binary lives in Cargo's bin directory
+  (`%USERPROFILE%\.cargo\bin` on Windows, `~/.cargo/bin` on macOS/Linux).
+  Open a new terminal first; if it still fails, add that directory to `PATH`.
+- **`cargo` is not recognized**: Rust installed but the terminal predates it —
+  open a new terminal, or reinstall via rustup (step 1).
+- **Install fails on network**: the first `cargo install` downloads
+  dependencies from crates.io. Retry with a connection; afterwards builds work
+  offline from the local cargo cache.
+- **`fetch` / `fetch-stock` fail at runtime**: those need internet to reach
+  Upbit / Yahoo Finance. `show` always works offline.
+
+### Update & uninstall
+
+Update to the latest source with the same command you installed with
+(`.\install.ps1`, `./install.sh`, or `cargo install --locked --path . --force`).
 
 ```bash
 cargo uninstall quant
