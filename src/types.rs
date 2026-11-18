@@ -50,6 +50,20 @@ impl Interval {
             Interval::Minutes240 => "https://api.upbit.com/v1/candles/minutes/240",
         }
     }
+
+    /// 대화형 입력 문자열(번호·축약어 포함)을 `Interval`로 파싱한다.
+    pub fn parse_input(s: &str) -> Option<Self> {
+        match s.trim().to_ascii_lowercase().as_str() {
+            "1" | "days" | "day" | "d" | "1d" => Some(Self::Days),
+            "2" | "weeks" | "week" | "w" | "1w" => Some(Self::Weeks),
+            "3" | "months" | "month" | "m" | "1mo" => Some(Self::Months),
+            "4" | "minutes1" | "1m" => Some(Self::Minutes1),
+            "5" | "minutes30" | "30m" => Some(Self::Minutes30),
+            "6" | "minutes60" | "60m" | "1h" => Some(Self::Minutes60),
+            "7" | "minutes240" | "240m" | "4h" => Some(Self::Minutes240),
+            _ => None,
+        }
+    }
 }
 
 /// 주식 봉 (Yahoo Finance 차트 API 기준).
@@ -85,6 +99,16 @@ impl StockInterval {
             StockInterval::Month => "1mo",
         }
     }
+
+    /// 대화형 입력 문자열(번호·축약어 포함)을 `StockInterval`로 파싱한다.
+    pub fn parse_input(s: &str) -> Option<Self> {
+        match s.trim().to_ascii_lowercase().as_str() {
+            "1" | "day" | "days" | "d" | "1d" => Some(Self::Day),
+            "2" | "week" | "weeks" | "w" | "1wk" => Some(Self::Week),
+            "3" | "month" | "months" | "m" | "1mo" => Some(Self::Month),
+            _ => None,
+        }
+    }
 }
 
 #[cfg(test)]
@@ -101,6 +125,24 @@ mod tests {
             Interval::Minutes60.endpoint(),
             "https://api.upbit.com/v1/candles/minutes/60"
         );
+    }
+
+    #[test]
+    fn interval_parse_input_supports_names_and_shorthand() {
+        assert_eq!(Interval::parse_input("1"), Some(Interval::Days));
+        assert_eq!(Interval::parse_input("6"), Some(Interval::Minutes60));
+        assert_eq!(Interval::parse_input("days"), Some(Interval::Days));
+        assert_eq!(Interval::parse_input("1D"), Some(Interval::Days));
+        assert_eq!(Interval::parse_input("60m"), Some(Interval::Minutes60));
+        assert_eq!(Interval::parse_input("4h"), Some(Interval::Minutes240));
+        assert_eq!(Interval::parse_input("invalid"), None);
+
+        assert_eq!(StockInterval::parse_input("1"), Some(StockInterval::Day));
+        assert_eq!(StockInterval::parse_input("2"), Some(StockInterval::Week));
+        assert_eq!(StockInterval::parse_input("day"), Some(StockInterval::Day));
+        assert_eq!(StockInterval::parse_input("1wk"), Some(StockInterval::Week));
+        assert_eq!(StockInterval::parse_input("1mo"), Some(StockInterval::Month));
+        assert_eq!(StockInterval::parse_input("5m"), None);
     }
 
     #[test]

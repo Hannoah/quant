@@ -15,7 +15,7 @@ pub enum QuantError {
     #[error("json error: {0}")]
     Json(#[from] serde_json::Error),
 
-    #[error("upbit api error (status {status}): {message}")]
+    #[error("api error (status {status}): {message}")]
     Api { status: u16, message: String },
 
     #[error("invalid input for field `{field}`: {reason}")]

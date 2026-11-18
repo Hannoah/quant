@@ -31,12 +31,14 @@ pub async fn fetch_candles(
         });
     }
 
-    let candles: Vec<Candle> = response.json().await?;
+    let mut candles: Vec<Candle> = response.json().await?;
     if candles.is_empty() {
         return Err(QuantError::EmptyData {
             market: market.to_string(),
         });
     }
+    // Upbit returns newest candles first; reverse to chronological order (oldest -> newest).
+    candles.reverse();
     Ok(candles)
 }
 

@@ -1,7 +1,9 @@
 use std::path::Path;
 
+use chrono::{NaiveDate, NaiveDateTime};
+
 use crate::error::QuantResult;
-use crate::types::{Candle, StockBar};
+use crate::types::{Candle, Interval, StockBar, StockInterval};
 
 /// `show`가 읽을 수 있는 데이터셋 (헤더로 자동 구분).
 #[derive(Debug, Clone, PartialEq)]
@@ -23,6 +25,7 @@ impl Dataset {
     }
 
     /// 앞 N개만 잘라낸다.
+    #[cfg(test)]
     pub fn head(&self, limit: usize) -> Dataset {
         match self {
             Dataset::Candles(rows) => {
@@ -33,6 +36,7 @@ impl Dataset {
     }
 
     /// 뒤(최신) N개만 잘라낸다.
+    #[cfg(test)]
     pub fn tail(&self, limit: usize) -> Dataset {
         match self {
             Dataset::Candles(rows) => Dataset::Candles(
@@ -55,6 +59,97 @@ impl Dataset {
                     .rev()
                     .collect(),
             ),
+        }
+    }
+
+    /// 날짜/시각 문자열 부분 일치로 행을 필터링한다.
+    pub fn filter_date(&self, query: &str) -> Dataset {
+        let q = query.trim();
+        if q.is_empty() {
+            return self.clone();
+        }
+        match self {
+            Dataset::Candles(rows) => Dataset::Candles(
+                rows.iter()
+                    .filter(|r| r.candle_date_time_kst.contains(q) || r.candle_date_time_utc.contains(q))
+                    .cloned()
+                    .collect(),
+            ),
+            Dataset::Stocks(rows) => Dataset::Stocks(
+                rows.iter()
+                    .filter(|r| r.date.contains(q))
+                    .cloned()
+                    .collect(),
+            ),
+        }
+    }
+
+    /// 종가 시계열을 반환한다 (스파크라인 렌더링용).
+    pub fn closes(&self) -> Vec<f64> {
+        match self {
+            Dataset::Candles(rows) => rows.iter().map(|c| c.trade_price).collect(),
+            Dataset::Stocks(rows) => rows.iter().map(|b| b.close).collect(),
+        }
+    }
+
+    /// 데이터셋의 대표 종목/마켓 코드를 반환한다.
+    #[cfg(test)]
+    pub fn asset_code(&self) -> Option<&str> {
+        match self {
+            Dataset::Candles(rows) => rows.last().map(|c| c.market.as_str()),
+            Dataset::Stocks(rows) => rows.last().map(|b| b.symbol.as_str()),
+        }
+    }
+
+    /// 연속된 캔들 간격을 분석해 Upbit `Interval`을 추론한다.
+    pub fn infer_crypto_interval(&self) -> Interval {
+        let Dataset::Candles(rows) = self else {
+            return Interval::Days;
+        };
+        let mut min_mins: Option<i64> = None;
+        for w in rows.windows(2) {
+            if let (Ok(a), Ok(b)) = (
+                NaiveDateTime::parse_from_str(&w[0].candle_date_time_kst, "%Y-%m-%dT%H:%M:%S"),
+                NaiveDateTime::parse_from_str(&w[1].candle_date_time_kst, "%Y-%m-%dT%H:%M:%S"),
+            ) {
+                let mins = (b - a).num_minutes().abs();
+                if mins > 0 {
+                    min_mins = Some(min_mins.map_or(mins, |m| m.min(mins)));
+                }
+            }
+        }
+        match min_mins.unwrap_or(1440) {
+            0..=5 => Interval::Minutes1,
+            6..=45 => Interval::Minutes30,
+            46..=120 => Interval::Minutes60,
+            121..=600 => Interval::Minutes240,
+            601..=4320 => Interval::Days,
+            4321..=20000 => Interval::Weeks,
+            _ => Interval::Months,
+        }
+    }
+
+    /// 연속된 봉 날짜 간격을 분석해 Yahoo `StockInterval`을 추론한다.
+    pub fn infer_stock_interval(&self) -> StockInterval {
+        let Dataset::Stocks(rows) = self else {
+            return StockInterval::Day;
+        };
+        let mut min_days: Option<i64> = None;
+        for w in rows.windows(2) {
+            if let (Ok(a), Ok(b)) = (
+                NaiveDate::parse_from_str(&w[0].date, "%Y-%m-%d"),
+                NaiveDate::parse_from_str(&w[1].date, "%Y-%m-%d"),
+            ) {
+                let days = (b - a).num_days().abs();
+                if days > 0 {
+                    min_days = Some(min_days.map_or(days, |d| d.min(days)));
+                }
+            }
+        }
+        match min_days.unwrap_or(1) {
+            0..=4 => StockInterval::Day,
+            5..=14 => StockInterval::Week,
+            _ => StockInterval::Month,
         }
     }
 }
@@ -80,14 +175,6 @@ pub fn load_dataset(path: &Path) -> QuantResult<Dataset> {
             rows.push(row);
         }
         Ok(Dataset::Stocks(rows))
-    }
-}
-
-/// 데이터셋 종류에 맞는 표를 만든다.
-pub fn format_dataset_table(dataset: &Dataset) -> String {
-    match dataset {
-        Dataset::Candles(rows) => format_table(rows),
-        Dataset::Stocks(rows) => format_stock_table(rows),
     }
 }
 
@@ -130,6 +217,7 @@ pub fn save_stock_bars(path: &Path, bars: &[StockBar]) -> QuantResult<()> {
 }
 
 /// 주식 봉 화면 표시용 고정폭 표를 만든다.
+#[cfg(test)]
 pub fn format_stock_table(bars: &[StockBar]) -> String {
     let mut out = String::new();
     out.push_str(&format!(
@@ -210,6 +298,7 @@ pub fn format_summary(candles: &[Candle]) -> String {
 }
 
 /// 화면 표시용 고정폭 표를 만든다.
+#[cfg(test)]
 pub fn format_table(candles: &[Candle]) -> String {
     let mut out = String::new();
     out.push_str(&format!(
@@ -337,5 +426,16 @@ mod tests {
         } else {
             panic!("expected stocks");
         }
+    }
+
+    #[test]
+    fn dataset_filter_closes_and_interval_inference() {
+        let dataset = Dataset::Stocks(stock_sample());
+        assert_eq!(dataset.asset_code(), Some("005930.KS"));
+        assert_eq!(dataset.closes(), vec![71000.0, 72500.0]);
+        assert_eq!(dataset.infer_stock_interval(), StockInterval::Day);
+
+        let filtered = dataset.filter_date("2026-01-02");
+        assert_eq!(filtered.len(), 1);
     }
 }

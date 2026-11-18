@@ -1,8 +1,8 @@
 [package]
 name = "quant"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
-description = "Upbit candle collector: fetch market candles to CSV and show status in the terminal"
+description = "Interactive quant data CLI: Upbit & Yahoo Finance collector, sparklines, watchlist & self-updater"
 license = "MIT"
 repository = "https://github.com/Hannoah/quant"
 readme = "README.md"
@@ -23,6 +23,7 @@ clap = { version = "4", features = ["derive", "env"] }
 reqwest = { version = "0.12", features = ["json", "rustls-tls"] }
 chrono = "0.4"
 csv = "1"
+crossterm = "0.29"
 
 [dev-dependencies]
 tempfile = "3"

@@ -103,8 +103,16 @@ quant show --input data/sample_stock.csv --limit 3
 
 ### Update & uninstall
 
-Update to the latest source with the same command you installed with
-(`.\install.ps1`, `./install.sh`, or `cargo install --locked --path . --force`).
+Check for newer versions and self-update directly with `quant update`:
+
+```bash
+quant update --check   # Check remote/workspace version without installing
+quant update           # Pull latest commits, build release, and swap quant binary
+quant update --force   # Force rebuild and replace even if version matches
+quant update --no-pull # Rebuild from local workspace without git pull
+```
+
+You can also run `.\install.ps1` / `./install.sh` from the repository root, or uninstall via:
 
 ```bash
 cargo uninstall quant
@@ -112,14 +120,43 @@ cargo uninstall quant
 
 ## Quick start
 
+### Interactive Pipeline Service (recommended)
+
+Run `quant` with no arguments (or `quant interactive`) to launch the interactive data collection pipeline menu & REPL:
+
 ```bash
-# 1. Collect 30 daily BTC candles (KRW market) into a CSV
-quant fetch --market KRW-BTC --interval days --count 30 --output data/candles.csv
+quant
+```
 
-# 2. Collect 3 months of Samsung Electronics daily bars
-quant fetch-stock --symbol 005930.KS --interval day --range 3mo --output data/stocks.csv
+From the interactive prompt (`quant ❯`), use:
+- Arrow-key (`↑`/`↓`) + live type-to-filter pickers & `Space` multi-select checkboxes (in TTY terminals)
+- `Tab` autocomplete, `↑`/`↓` persistent command history, live suggestions under the cursor, and `/` command palette
+- Shortcuts `[1]`–`[5]`, `[a]`, `[w]`, `[r]`, `[m]`, `[o]`, `[u]` or slash commands (`/fetch`, `/stock`, `/pipeline`, `/all`, `/watch`, `/refresh`, `/show`, `/status`, `/markets`, `/open`, `/update`, `/clear`, `/help`, `/exit`).
 
-# 3. Show the newest 5 rows plus a status summary
+### One-shot CLI commands
+
+```bash
+# 1. Browse preset markets/stocks or search live Upbit KRW markets
+quant markets
+quant markets 삼성 --live
+
+# 2. Collect all 10 preset coins + 12 preset stocks at once (or ALL Upbit KRW markets)
+quant pipeline --all --out-dir data
+quant pipeline --all-upbit --out-dir data
+
+# 3. Run custom multi-asset batch collection pipeline (supports short names/tickers)
+quant pipeline --markets btc,솔라나 --symbols 삼성전자,NVDA --out-dir data
+
+# 4. Check all collected datasets in data/
+quant status
+
+# 5. Collect 30 daily BTC candles (KRW market) into a CSV
+quant fetch --market btc --interval days --count 30 --output data/candles.csv
+
+# 6. Collect 3 months of Samsung Electronics daily bars (Korean name or 6-digit code works)
+quant fetch-stock --symbol 삼성전자 --interval day --range 3mo --output data/stocks.csv
+
+# 7. Show the newest 5 rows plus a status summary
 quant show --input data/stocks.csv --limit 5 --tail
 ```
 
@@ -141,6 +178,79 @@ quant show --input data/sample_stock.csv --limit 3  # Yahoo-style stock bars
 
 ## Commands
 
+### `quant` / `quant interactive` — interactive pipeline service
+
+Running `quant` without subcommands launches a full interactive terminal workbench (`quant ❯`) with:
+- **Arrow-key pickers & type-to-filter (`↑`/`↓`, type Korean/English/ticker, `Enter`, `Esc`)** for selecting coins, stocks, intervals, ranges, and CSV files
+- **Checkbox multi-select (`Space`, `Ctrl+A`, `Enter`)** in `/pipeline` and `/watch`
+- **Live prompt UX**: `Tab` completion, persistent `↑`/`↓` command history, live suggestions below the cursor, braille spinner during fetches, and `/` command palette
+- **Visual cockpit**: Unicode trend sparklines (`▁▂▃▄▆▇█`), comma-formatted adaptive prices, daily `chg%`, and relative file freshness (`방금`, `5분 전`)
+
+### `quant watch` — saved watchlist
+
+```bash
+quant watch add 솔라나 삼성전자 NVDA   # Auto-detect crypto/stock and save to watchlist
+quant watch list                        # View watchlist & latest saved prices
+quant watch run                         # Collect all saved watchlist items into data/
+quant watch remove NVDA                 # Remove from watchlist
+```
+
+### `quant refresh` & `quant open` — smart batch refresh & quick viewer
+
+```bash
+quant refresh                # Auto-detect intervals of CSVs in data/ and re-fetch latest bars
+quant open data/stocks.csv   # Open CSV in Excel / default viewer (or `quant open` for data/ folder)
+```
+
+### `quant markets` — preset catalog & live search
+
+```bash
+quant markets               # Show built-in crypto (1..10) & stock (1..12) presets
+quant markets 삼성 --live   # Search built-in stocks + live Upbit KRW markets
+```
+
+### `quant completion` — shell tab-completion
+
+```powershell
+# PowerShell: enable tab completion for quant subcommands, flags, and preset codes
+quant completion powershell | Out-String | Invoke-Expression
+```
+
+### `quant update` — check & self-update
+
+```bash
+quant update           # Check GitHub/workspace version, pull, build release, and swap binary
+quant update --check   # Check only (no build/install)
+quant update --force   # Force rebuild and reinstall
+quant update --no-pull # Skip git pull --ff-only
+```
+
+### `quant pipeline` — batch collection pipeline (Crypto + Stocks)
+
+```bash
+quant pipeline --markets KRW-BTC,KRW-ETH --symbols 005930.KS,AAPL --out-dir data
+```
+
+| Flag | Default | Notes |
+|---|---|---|
+| `--markets` | `KRW-BTC,KRW-ETH` | Comma-separated Upbit markets (or short tickers/numbers/Korean names) |
+| `--symbols` | `005930.KS,AAPL` | Comma-separated Yahoo symbols (or 6-digit codes/Korean names) |
+| `--all` | `false` | Collect all 10 preset coins + 12 preset stocks (22 assets) |
+| `--all-upbit` | `false` | Query Upbit `/v1/market/all` and collect all `KRW-*` markets (rate-limited) |
+| `--crypto-interval` | `days` | Upbit interval (`days`, `weeks`, `months`, `minutes1`, `minutes30`, `minutes60`, `minutes240`) |
+| `--count` | `30` | Upbit candles per market (1–200) |
+| `--stock-interval` | `day` | Yahoo interval (`day`, `week`, `month`) |
+| `--range` | `3mo` | Yahoo range (`1d` .. `max`) |
+| `--out-dir` | `data` | Directory to write `<market>.csv` and `<symbol>.csv` files |
+
+### `quant status` — storage overview (offline)
+
+```bash
+quant status --dir data
+```
+
+Scans `--dir` for `.csv` files and prints a numbered list of datasets with type (`CRYPTO` / `STOCK`) and summary stats.
+
 ### `quant fetch` — crypto candles (Upbit)
 
 ```bash
@@ -151,10 +261,10 @@ quant fetch --market KRW-BTC --interval days --count 30 --output data/candles.cs
 |---|---|---|
 | `--market` | `KRW-BTC` | Upbit market code (`KRW-ETH`, `KRW-XRP`, …). Also via `QUANT_MARKET` env |
 | `--interval` | `days` | `days`, `weeks`, `months`, `minutes1`, `minutes30`, `minutes60`, `minutes240` |
-| `--count` | `30` | 1–200, newest bars first |
+| `--count` | `30` | 1–200, normalized oldest → newest |
 | `--output` | `data/candles.csv` | Parent directories are created automatically |
 
-After saving, the first 5 rows are previewed in the terminal.
+After saving, the newest 5 rows and summary line are printed in the terminal.
 
 ### `quant fetch-stock` — stock bars (Yahoo Finance)
 
@@ -174,8 +284,9 @@ Bars with missing closes are skipped; missing open/high/low fall back to the clo
 ### `quant show` — status view (offline)
 
 ```bash
-quant show --input data/stocks.csv --limit 10   # first 10 rows
-quant show --input data/stocks.csv --limit 5 --tail  # newest 5 rows
+quant show --input data/stocks.csv --limit 10                    # first 10 rows
+quant show --input data/stocks.csv --limit 5 --tail              # newest 5 rows
+quant show --input data/stocks.csv --filter 2026-11 --limit 20   # filter by date substring
 ```
 
 The CSV header decides the format automatically: a `market` column means
@@ -191,11 +302,21 @@ change vs. first open).
 | `QUANT_SYMBOL` | Default `--symbol` for `fetch-stock` |
 | `RUST_LOG` | Log level (e.g. `RUST_LOG=info`), via `tracing` |
 
-## Development
+## Development & Auto-Deploy
 
 ```bash
-cargo test        # unit tests (no network needed)
-bash ai-verify.sh # cargo check + clippy with -D warnings (Git Bash on Windows)
+cargo test --locked # unit tests (no network needed)
+bash ai-verify.sh   # cargo check + clippy with -D warnings (Git Bash on Windows)
+```
+
+One-command local/release deployment:
+
+```powershell
+# Verify (test + strict clippy) and swap/install into %USERPROFILE%\.cargo\bin\quant.exe
+powershell -ExecutionPolicy Bypass -File scripts/deploy.ps1
+
+# Push main + tag vX.Y.Z to trigger .github/workflows/ci-release.yml GitHub Release build
+powershell -ExecutionPolicy Bypass -File scripts/deploy.ps1 -Push -Tag
 ```
 
 Working rules live in [CONVENTIONS.md](CONVENTIONS.md): type-first design
@@ -208,13 +329,19 @@ Project layout:
 
 ```text
 src/
-  main.rs    # CLI entry point (tokio runtime, subcommand dispatch)
-  cli.rs     # Clap 4 derive definitions (fetch / fetch-stock / show)
-  types.rs   # Candle, StockBar, Interval, StockInterval
-  error.rs   # QuantError (thiserror) + input validators
-  upbit.rs   # Upbit public candles client
-  yahoo.rs   # Yahoo Finance chart client + response parser
-  store.rs   # CSV save/load, Dataset auto-detect, table + summary formatting
+  main.rs         # CLI entry point (tokio runtime, subcommand dispatch)
+  cli.rs          # Clap 4 derive definitions & styling
+  catalog.rs      # Preset markets/stocks, Korean/partial autocomplete, live Upbit search & shell completion
+  prefs.rs        # Persistent watchlist, last-used settings & command history
+  style.rs        # Terminal theme, ANSI badges, sparklines, adaptive numbers & Hangul-safe tables
+  tui.rs          # Crossterm arrow/checkbox pickers, live-suggestion line editor & spinner (with non-TTY fallback)
+  interactive.rs  # Interactive pipeline REPL, slash commands, guided wizards, watch & smart refresh
+  update.rs       # Version check, git sync, release build & Windows-safe binary swapper
+  types.rs        # Candle, StockBar, Interval, StockInterval
+  error.rs        # QuantError (thiserror) + input validators
+  upbit.rs        # Upbit public candles client
+  yahoo.rs        # Yahoo Finance chart client + response parser
+  store.rs        # CSV save/load, Dataset auto-detect, table + summary formatting
 ```
 
 ## Data sources & disclaimer

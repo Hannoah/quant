@@ -1,4 +1,5 @@
 target/
 .env
-data/candles.csv
-data/stocks.csv
+data/*.csv
+!data/sample.csv
+!data/sample_stock.csv
